@@ -1402,6 +1402,26 @@ def test_docx_malformed_equations() -> None:
     assert "After unnamespaced oMathPara" in result.markdown
     assert "After unnamespaced oMath" in result.markdown
 
+def test_pre_process_math_skips_when_no_equations() -> None:
+    """When a document contains no OMML equations, _pre_process_math should return
+    the original bytes without incurring an expensive BeautifulSoup round-trip."""
+    from markitdown.converter_utils.docx.pre_process import _pre_process_math
+
+    raw_xml = (
+        b'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        b"<w:body><w:p><w:r><w:t>Hello world</w:t></w:r></w:p></w:body></w:document>"
+    )
+    # Byte identity check verifies the parse/serialize round-trip was bypassed
+    assert _pre_process_math(raw_xml) is raw_xml
+
+    # Verify that when oMath is present, conversion still takes place
+    math_xml = (
+        b'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+        b'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
+        b"<m:oMath><m:r><m:t>x+1</m:t></m:r></m:oMath></w:document>"
+    )
+    result = _pre_process_math(math_xml)
+    assert b"$x+1$" in result
 
 @pytest.mark.skipif(
     os.name == "nt",
